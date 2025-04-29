@@ -1,19 +1,15 @@
-CC = g++
-CFLAGS = -std=c++17 -Wall
+CC=g++
 
-all: assembler
+CFLAGS= 
 
-assembler: lex.yy.cc parser.tab.cc Main.cpp
-	$(CC) $(CFLAGS) -o $@ $^
+all: yacc build
 
-lex.yy.cc: lexer.l
-	flex -o lex.yy.cc lexer.l  # Явно указываем выходной файл
+yacc:
+	bison parser.yy
+	flex lexer.l
 
-parser.tab.cc parser.tab.h: parser.y
-	bison -d parser.y --output=parser.tab.cc  # Генерируем .cc вместо .c
+build:
+	$(CC) $(CFLAGS) lex.yy.c parser.tab.cc driver.cc main.cc -o marasm
 
 clean:
-	rm -f assembler lex.yy.cc parser.tab.* *.output *.bin *.txt
-
-test: assembler
-	./assembler < test.asm
+	rm -f parser.tab.cc parser.tab.hh location.hh lex.yy.c

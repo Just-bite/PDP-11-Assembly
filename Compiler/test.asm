@@ -1,5 +1,2 @@
-START:  MOV #42, R0
-        ADD (R1)+, R2
-LOOP:   CMP R0, R2
-        BNE LOOP
-        HALT
+START:  MOV R0
+LOOP:   SUB R0 ;asasaa
