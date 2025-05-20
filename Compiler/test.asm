@@ -1,2 +1,0 @@
-START:  MOV R0
-LOOP:   SUB R0 ;asasaa

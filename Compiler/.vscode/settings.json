@@ -56,7 +56,14 @@
         "typeinfo": "cpp",
         "variant": "cpp",
         "shared.h": "c",
-        "types.h": "c"
+        "types.h": "c",
+        "cstring": "cpp",
+        "map": "cpp",
+        "fstream": "cpp",
+        "iomanip": "cpp",
+        "iostream": "cpp",
+        "cinttypes": "cpp",
+        "list": "cpp"
     },
     "workbench.settings.useSplitJSON": false,
     "C_Cpp.autocompleteAddParentheses": true,

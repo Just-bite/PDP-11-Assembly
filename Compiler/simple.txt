@@ -1,0 +1,21 @@
+.DATA
+   fact: = 5
+   NUM: .WORD 1
+    
+.CODE
+    mov #fact, R0
+    mov #fact, R3
+    mov #NUM, R2
+    mov (R2), R1 
+LOOP:
+    cmp R3, #0
+    bne continue
+    JMP end
+continue:
+    mul R0, R1
+    mov R3, R0
+    dec R3
+    JMP LOOP 
+end:
+HALT
+

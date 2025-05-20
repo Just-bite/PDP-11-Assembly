@@ -32,7 +32,7 @@
 
 
 /**
- ** \file parser.tab.hh
+ ** \file include/parser.tab.hh
  ** Define the yy::parser class.
  */
 
@@ -42,84 +42,26 @@
 // especially those whose name start with YY_ or yy_.  They are
 // private implementation details that can be changed or removed.
 
-#ifndef YY_YY_PARSER_TAB_HH_INCLUDED
-# define YY_YY_PARSER_TAB_HH_INCLUDED
+#ifndef YY_YY_INCLUDE_PARSER_TAB_HH_INCLUDED
+# define YY_YY_INCLUDE_PARSER_TAB_HH_INCLUDED
 // "%code requires" blocks.
-#line 11 "parser.yy"
+#line 11 "src/parser.yy"
 
-    # include <string>
-    # include <vector>
-    # include <cstdint>
-    # include <cctype>
+    #include <cctype>
     #include <iomanip>
-    class driver;
-
-    enum AddressingTypes : uint8_t {
-        REG                     = 0b00000000,
-        REG_INDIRECT            = 0b00110000,
-        AUTO_INCREMENT          = 0b01110000,
-        AUTO_INCREMENT_INDIRECT = 0b01110001,
-        AUTO_DECREMENT          = 0b00110100,
-        AUTO_DECREMENT_INDIRECT = 0b00110101,
-        INDEXED                 = 0b00111000,
-        INDEXED_INDIRECT        = 0b00111001,
-        IMMEDIATE               = 0b00000101,
-        ABSOLUTE                = 0b00001011,
-        RELATIVE                = 0b10000000,
-    };
-
-    enum TokenFlags : uint8_t {
-        NONE = 0b00000000,
-        AT_F = 0b00000001, // @
-        HASH = 0b00000010, // #
-        MIN  = 0b00000100, // -
-        NUM  = 0b00001000, // numbers
-        LPAR = 0b00010000, // (
-        RPAR = 0b00100000, // )
-        PLS  = 0b01000000, // +
-    };
-
-
-    struct Operand {
-        uint16_t value;
-        int16_t offset = 0;
-        AddressingTypes type = AddressingTypes::REG;
-        uint8_t token_flags = NONE;
-
-        Operand() : value(0), offset(0), type(REG), token_flags(NONE) {};
-        Operand(uint16_t val, AddressingTypes t, int16_t disp = 0) 
-            : value(val),offset(disp), type(t)  {};
-    };
-
-    struct Instruction {
-      std::string mnemonic;
-      std::vector<Operand> operands;
-      uint16_t adress;
-      uint8_t size;
-    };
-
-    struct LabelInfo {
-        uint16_t    value;         // Значение LC
-        bool        is_defined;    // Определена ли метка
-        std::vector<uint16_t> refs;// Адреса ссылок на эту метку
-    };
-    
-
-    int calculate_instr_size(const std::vector<Operand>& operands);
-    void process_label(const std::string& name,driver& drv);
-    void add_instruction(const std::string& mnemonic, 
-                         const std::vector<Operand>& operands,driver& drv);
-    
-    void print_instr(driver& drv);
-    void print_symbol_table(driver& drv);
-    AddressingTypes determine_adressing_type();
-    const char* addressingTypeToString(AddressingTypes type);
-    int16_t parse_oct(const std::string& s);
-    int16_t parse_hex(const std::string& s);
+    #include <fstream>
+    #include "structure.hh"
+    class Mediator;
+    class Validator;
+    class ListMaker;
+  
+    int16_t parse_oct(const std::string&);
+    int16_t parse_hex(const std::string&);
+    std::string check_for_listing_flags(int16_t);
 
 
 
-#line 123 "parser.tab.hh"
+#line 65 "include/parser.tab.hh"
 
 # include <cassert>
 # include <cstdlib> // std::abort
@@ -259,7 +201,7 @@
 #endif
 
 namespace yy {
-#line 263 "parser.tab.hh"
+#line 205 "include/parser.tab.hh"
 
 
 
@@ -486,10 +428,15 @@ namespace yy {
       char dummy2[sizeof (int)];
 
       // notreg
+      // equ_expr
+      // word_value
       // number
       // prereg
       // prelp
       char dummy3[sizeof (int16_t)];
+
+      // byte_value
+      char dummy4[sizeof (int8_t)];
 
       // "instruction"
       // "comment"
@@ -497,7 +444,13 @@ namespace yy {
       // "branch"
       // "register"
       // "label"
-      // "directive"
+      // "port"
+      // "directive_EQU"
+      // "directive_BYTE"
+      // "directive_WORD"
+      // "data_seg"
+      // "code_seg"
+      // "char_literal"
       // "at"
       // "numsign"
       // "lparen"
@@ -506,7 +459,26 @@ namespace yy {
       // "plus"
       // "hexnum"
       // "octnum"
-      char dummy4[sizeof (std::string)];
+      // "mult"
+      // "div"
+      // "mod"
+      // "lshift"
+      // "rshift"
+      // "band"
+      // "bor"
+      // "bxor"
+      // "ascii"
+      // "asciiz"
+      // "string_literal"
+      // expr
+      // postreg
+      char dummy5[sizeof (std::string)];
+
+      // word_expr
+      char dummy6[sizeof (std::vector<int16_t>)];
+
+      // byte_expr
+      char dummy7[sizeof (std::vector<int8_t>)];
     };
 
     /// The size of the largest semantic type.
@@ -566,16 +538,34 @@ namespace yy {
     TOK_BRANCH = 7,                // "branch"
     TOK_REGISTER = 8,              // "register"
     TOK_LABEL = 9,                 // "label"
-    TOK_DIRECTIVE = 10,            // "directive"
-    TOK_AT = 11,                   // "at"
-    TOK_NUMSIGN = 12,              // "numsign"
-    TOK_LPAREN = 13,               // "lparen"
-    TOK_RPAREN = 14,               // "rparen"
-    TOK_MINUS = 15,                // "minus"
-    TOK_PLUS = 16,                 // "plus"
-    TOK_HEX_NUM = 17,              // "hexnum"
-    TOK_OCT_NUM = 18,              // "octnum"
-    TOK_DEC_NUM = 19               // "decnum"
+    TOK_PORT = 10,                 // "port"
+    TOK_EQU_DIRECTIVE = 11,        // "directive_EQU"
+    TOK_BYTE_DIRECTIVE = 12,       // "directive_BYTE"
+    TOK_WORD_DIRECTIVE = 13,       // "directive_WORD"
+    TOK_DATA_S = 14,               // "data_seg"
+    TOK_CODE_S = 15,               // "code_seg"
+    TOK_CHAR_LITERAL = 16,         // "char_literal"
+    TOK_AT = 17,                   // "at"
+    TOK_NUMSIGN = 18,              // "numsign"
+    TOK_LPAREN = 19,               // "lparen"
+    TOK_RPAREN = 20,               // "rparen"
+    TOK_MINUS = 21,                // "minus"
+    TOK_PLUS = 22,                 // "plus"
+    TOK_HEX_NUM = 23,              // "hexnum"
+    TOK_OCT_NUM = 24,              // "octnum"
+    TOK_MULT = 25,                 // "mult"
+    TOK_DIV = 26,                  // "div"
+    TOK_MOD = 27,                  // "mod"
+    TOK_LSHIFT = 28,               // "lshift"
+    TOK_RSHIFT = 29,               // "rshift"
+    TOK_BAND = 30,                 // "band"
+    TOK_BOR = 31,                  // "bor"
+    TOK_BXOR = 32,                 // "bxor"
+    TOK_ASCII_DIRECTIVE = 33,      // "ascii"
+    TOK_ASCIIZ_DIRECTIVE = 34,     // "asciiz"
+    TOK_STRING_LITERAL = 35,       // "string_literal"
+    TOK_DEC_NUM = 36,              // "decnum"
+    TOK_UMINUS = 37                // UMINUS
       };
       /// Backward compatibility alias (Bison 3.6).
       typedef token_kind_type yytokentype;
@@ -592,7 +582,7 @@ namespace yy {
     {
       enum symbol_kind_type
       {
-        YYNTOKENS = 20, ///< Number of tokens.
+        YYNTOKENS = 38, ///< Number of tokens.
         S_YYEMPTY = -2,
         S_YYEOF = 0,                             // "end of file"
         S_YYerror = 1,                           // error
@@ -604,28 +594,51 @@ namespace yy {
         S_BRANCH = 7,                            // "branch"
         S_REGISTER = 8,                          // "register"
         S_LABEL = 9,                             // "label"
-        S_DIRECTIVE = 10,                        // "directive"
-        S_AT = 11,                               // "at"
-        S_NUMSIGN = 12,                          // "numsign"
-        S_LPAREN = 13,                           // "lparen"
-        S_RPAREN = 14,                           // "rparen"
-        S_MINUS = 15,                            // "minus"
-        S_PLUS = 16,                             // "plus"
-        S_HEX_NUM = 17,                          // "hexnum"
-        S_OCT_NUM = 18,                          // "octnum"
-        S_DEC_NUM = 19,                          // "decnum"
-        S_YYACCEPT = 20,                         // $accept
-        S_program1 = 21,                         // program1
-        S_input = 22,                            // input
-        S_line = 23,                             // line
-        S_expr = 24,                             // expr
-        S_adressingS = 25,                       // adressingS
-        S_adressingD = 26,                       // adressingD
-        S_notreg = 27,                           // notreg
-        S_number = 28,                           // number
-        S_prereg = 29,                           // prereg
-        S_postreg = 30,                          // postreg
-        S_prelp = 31                             // prelp
+        S_PORT = 10,                             // "port"
+        S_EQU_DIRECTIVE = 11,                    // "directive_EQU"
+        S_BYTE_DIRECTIVE = 12,                   // "directive_BYTE"
+        S_WORD_DIRECTIVE = 13,                   // "directive_WORD"
+        S_DATA_S = 14,                           // "data_seg"
+        S_CODE_S = 15,                           // "code_seg"
+        S_CHAR_LITERAL = 16,                     // "char_literal"
+        S_AT = 17,                               // "at"
+        S_NUMSIGN = 18,                          // "numsign"
+        S_LPAREN = 19,                           // "lparen"
+        S_RPAREN = 20,                           // "rparen"
+        S_MINUS = 21,                            // "minus"
+        S_PLUS = 22,                             // "plus"
+        S_HEX_NUM = 23,                          // "hexnum"
+        S_OCT_NUM = 24,                          // "octnum"
+        S_MULT = 25,                             // "mult"
+        S_DIV = 26,                              // "div"
+        S_MOD = 27,                              // "mod"
+        S_LSHIFT = 28,                           // "lshift"
+        S_RSHIFT = 29,                           // "rshift"
+        S_BAND = 30,                             // "band"
+        S_BOR = 31,                              // "bor"
+        S_BXOR = 32,                             // "bxor"
+        S_ASCII_DIRECTIVE = 33,                  // "ascii"
+        S_ASCIIZ_DIRECTIVE = 34,                 // "asciiz"
+        S_STRING_LITERAL = 35,                   // "string_literal"
+        S_DEC_NUM = 36,                          // "decnum"
+        S_UMINUS = 37,                           // UMINUS
+        S_YYACCEPT = 38,                         // $accept
+        S_program1 = 39,                         // program1
+        S_input = 40,                            // input
+        S_line = 41,                             // line
+        S_expr = 42,                             // expr
+        S_adressingS = 43,                       // adressingS
+        S_adressingD = 44,                       // adressingD
+        S_notreg = 45,                           // notreg
+        S_equ_expr = 46,                         // equ_expr
+        S_byte_expr = 47,                        // byte_expr
+        S_byte_value = 48,                       // byte_value
+        S_word_expr = 49,                        // word_expr
+        S_word_value = 50,                       // word_value
+        S_number = 51,                           // number
+        S_prereg = 52,                           // prereg
+        S_postreg = 53,                          // postreg
+        S_prelp = 54                             // prelp
       };
     };
 
@@ -672,10 +685,16 @@ namespace yy {
         break;
 
       case symbol_kind::S_notreg: // notreg
+      case symbol_kind::S_equ_expr: // equ_expr
+      case symbol_kind::S_word_value: // word_value
       case symbol_kind::S_number: // number
       case symbol_kind::S_prereg: // prereg
       case symbol_kind::S_prelp: // prelp
         value.move< int16_t > (std::move (that.value));
+        break;
+
+      case symbol_kind::S_byte_value: // byte_value
+        value.move< int8_t > (std::move (that.value));
         break;
 
       case symbol_kind::S_INSTRUCTION: // "instruction"
@@ -684,7 +703,13 @@ namespace yy {
       case symbol_kind::S_BRANCH: // "branch"
       case symbol_kind::S_REGISTER: // "register"
       case symbol_kind::S_LABEL: // "label"
-      case symbol_kind::S_DIRECTIVE: // "directive"
+      case symbol_kind::S_PORT: // "port"
+      case symbol_kind::S_EQU_DIRECTIVE: // "directive_EQU"
+      case symbol_kind::S_BYTE_DIRECTIVE: // "directive_BYTE"
+      case symbol_kind::S_WORD_DIRECTIVE: // "directive_WORD"
+      case symbol_kind::S_DATA_S: // "data_seg"
+      case symbol_kind::S_CODE_S: // "code_seg"
+      case symbol_kind::S_CHAR_LITERAL: // "char_literal"
       case symbol_kind::S_AT: // "at"
       case symbol_kind::S_NUMSIGN: // "numsign"
       case symbol_kind::S_LPAREN: // "lparen"
@@ -693,7 +718,28 @@ namespace yy {
       case symbol_kind::S_PLUS: // "plus"
       case symbol_kind::S_HEX_NUM: // "hexnum"
       case symbol_kind::S_OCT_NUM: // "octnum"
+      case symbol_kind::S_MULT: // "mult"
+      case symbol_kind::S_DIV: // "div"
+      case symbol_kind::S_MOD: // "mod"
+      case symbol_kind::S_LSHIFT: // "lshift"
+      case symbol_kind::S_RSHIFT: // "rshift"
+      case symbol_kind::S_BAND: // "band"
+      case symbol_kind::S_BOR: // "bor"
+      case symbol_kind::S_BXOR: // "bxor"
+      case symbol_kind::S_ASCII_DIRECTIVE: // "ascii"
+      case symbol_kind::S_ASCIIZ_DIRECTIVE: // "asciiz"
+      case symbol_kind::S_STRING_LITERAL: // "string_literal"
+      case symbol_kind::S_expr: // expr
+      case symbol_kind::S_postreg: // postreg
         value.move< std::string > (std::move (that.value));
+        break;
+
+      case symbol_kind::S_word_expr: // word_expr
+        value.move< std::vector<int16_t> > (std::move (that.value));
+        break;
+
+      case symbol_kind::S_byte_expr: // byte_expr
+        value.move< std::vector<int8_t> > (std::move (that.value));
         break;
 
       default:
@@ -762,6 +808,20 @@ namespace yy {
 #endif
 
 #if 201103L <= YY_CPLUSPLUS
+      basic_symbol (typename Base::kind_type t, int8_t&& v, location_type&& l)
+        : Base (t)
+        , value (std::move (v))
+        , location (std::move (l))
+      {}
+#else
+      basic_symbol (typename Base::kind_type t, const int8_t& v, const location_type& l)
+        : Base (t)
+        , value (v)
+        , location (l)
+      {}
+#endif
+
+#if 201103L <= YY_CPLUSPLUS
       basic_symbol (typename Base::kind_type t, std::string&& v, location_type&& l)
         : Base (t)
         , value (std::move (v))
@@ -769,6 +829,34 @@ namespace yy {
       {}
 #else
       basic_symbol (typename Base::kind_type t, const std::string& v, const location_type& l)
+        : Base (t)
+        , value (v)
+        , location (l)
+      {}
+#endif
+
+#if 201103L <= YY_CPLUSPLUS
+      basic_symbol (typename Base::kind_type t, std::vector<int16_t>&& v, location_type&& l)
+        : Base (t)
+        , value (std::move (v))
+        , location (std::move (l))
+      {}
+#else
+      basic_symbol (typename Base::kind_type t, const std::vector<int16_t>& v, const location_type& l)
+        : Base (t)
+        , value (v)
+        , location (l)
+      {}
+#endif
+
+#if 201103L <= YY_CPLUSPLUS
+      basic_symbol (typename Base::kind_type t, std::vector<int8_t>&& v, location_type&& l)
+        : Base (t)
+        , value (std::move (v))
+        , location (std::move (l))
+      {}
+#else
+      basic_symbol (typename Base::kind_type t, const std::vector<int8_t>& v, const location_type& l)
         : Base (t)
         , value (v)
         , location (l)
@@ -809,10 +897,16 @@ switch (yykind)
         break;
 
       case symbol_kind::S_notreg: // notreg
+      case symbol_kind::S_equ_expr: // equ_expr
+      case symbol_kind::S_word_value: // word_value
       case symbol_kind::S_number: // number
       case symbol_kind::S_prereg: // prereg
       case symbol_kind::S_prelp: // prelp
         value.template destroy< int16_t > ();
+        break;
+
+      case symbol_kind::S_byte_value: // byte_value
+        value.template destroy< int8_t > ();
         break;
 
       case symbol_kind::S_INSTRUCTION: // "instruction"
@@ -821,7 +915,13 @@ switch (yykind)
       case symbol_kind::S_BRANCH: // "branch"
       case symbol_kind::S_REGISTER: // "register"
       case symbol_kind::S_LABEL: // "label"
-      case symbol_kind::S_DIRECTIVE: // "directive"
+      case symbol_kind::S_PORT: // "port"
+      case symbol_kind::S_EQU_DIRECTIVE: // "directive_EQU"
+      case symbol_kind::S_BYTE_DIRECTIVE: // "directive_BYTE"
+      case symbol_kind::S_WORD_DIRECTIVE: // "directive_WORD"
+      case symbol_kind::S_DATA_S: // "data_seg"
+      case symbol_kind::S_CODE_S: // "code_seg"
+      case symbol_kind::S_CHAR_LITERAL: // "char_literal"
       case symbol_kind::S_AT: // "at"
       case symbol_kind::S_NUMSIGN: // "numsign"
       case symbol_kind::S_LPAREN: // "lparen"
@@ -830,7 +930,28 @@ switch (yykind)
       case symbol_kind::S_PLUS: // "plus"
       case symbol_kind::S_HEX_NUM: // "hexnum"
       case symbol_kind::S_OCT_NUM: // "octnum"
+      case symbol_kind::S_MULT: // "mult"
+      case symbol_kind::S_DIV: // "div"
+      case symbol_kind::S_MOD: // "mod"
+      case symbol_kind::S_LSHIFT: // "lshift"
+      case symbol_kind::S_RSHIFT: // "rshift"
+      case symbol_kind::S_BAND: // "band"
+      case symbol_kind::S_BOR: // "bor"
+      case symbol_kind::S_BXOR: // "bxor"
+      case symbol_kind::S_ASCII_DIRECTIVE: // "ascii"
+      case symbol_kind::S_ASCIIZ_DIRECTIVE: // "asciiz"
+      case symbol_kind::S_STRING_LITERAL: // "string_literal"
+      case symbol_kind::S_expr: // expr
+      case symbol_kind::S_postreg: // postreg
         value.template destroy< std::string > ();
+        break;
+
+      case symbol_kind::S_word_expr: // word_expr
+        value.template destroy< std::vector<int16_t> > ();
+        break;
+
+      case symbol_kind::S_byte_expr: // byte_expr
+        value.template destroy< std::vector<int8_t> > ();
         break;
 
       default:
@@ -931,7 +1052,8 @@ switch (yykind)
       {
 #if !defined _MSC_VER || defined __clang__
         YY_ASSERT (tok == token::TOK_YYEOF
-                   || (token::TOK_YYerror <= tok && tok <= token::TOK_COMMA));
+                   || (token::TOK_YYerror <= tok && tok <= token::TOK_COMMA)
+                   || tok == token::TOK_UMINUS);
 #endif
       }
 #if 201103L <= YY_CPLUSPLUS
@@ -955,13 +1077,13 @@ switch (yykind)
 #endif
       {
 #if !defined _MSC_VER || defined __clang__
-        YY_ASSERT ((token::TOK_INSTRUCTION <= tok && tok <= token::TOK_OCT_NUM));
+        YY_ASSERT ((token::TOK_INSTRUCTION <= tok && tok <= token::TOK_STRING_LITERAL));
 #endif
       }
     };
 
     /// Build a parser object.
-    parser (driver& drv_yyarg);
+    parser (Mediator& m_yyarg, Validator& valid_yyarg, ListMaker& list_yyarg);
     virtual ~parser ();
 
 #if 201103L <= YY_CPLUSPLUS
@@ -1159,16 +1281,106 @@ switch (yykind)
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
-      make_DIRECTIVE (std::string v, location_type l)
+      make_PORT (std::string v, location_type l)
       {
-        return symbol_type (token::TOK_DIRECTIVE, std::move (v), std::move (l));
+        return symbol_type (token::TOK_PORT, std::move (v), std::move (l));
       }
 #else
       static
       symbol_type
-      make_DIRECTIVE (const std::string& v, const location_type& l)
+      make_PORT (const std::string& v, const location_type& l)
       {
-        return symbol_type (token::TOK_DIRECTIVE, v, l);
+        return symbol_type (token::TOK_PORT, v, l);
+      }
+#endif
+#if 201103L <= YY_CPLUSPLUS
+      static
+      symbol_type
+      make_EQU_DIRECTIVE (std::string v, location_type l)
+      {
+        return symbol_type (token::TOK_EQU_DIRECTIVE, std::move (v), std::move (l));
+      }
+#else
+      static
+      symbol_type
+      make_EQU_DIRECTIVE (const std::string& v, const location_type& l)
+      {
+        return symbol_type (token::TOK_EQU_DIRECTIVE, v, l);
+      }
+#endif
+#if 201103L <= YY_CPLUSPLUS
+      static
+      symbol_type
+      make_BYTE_DIRECTIVE (std::string v, location_type l)
+      {
+        return symbol_type (token::TOK_BYTE_DIRECTIVE, std::move (v), std::move (l));
+      }
+#else
+      static
+      symbol_type
+      make_BYTE_DIRECTIVE (const std::string& v, const location_type& l)
+      {
+        return symbol_type (token::TOK_BYTE_DIRECTIVE, v, l);
+      }
+#endif
+#if 201103L <= YY_CPLUSPLUS
+      static
+      symbol_type
+      make_WORD_DIRECTIVE (std::string v, location_type l)
+      {
+        return symbol_type (token::TOK_WORD_DIRECTIVE, std::move (v), std::move (l));
+      }
+#else
+      static
+      symbol_type
+      make_WORD_DIRECTIVE (const std::string& v, const location_type& l)
+      {
+        return symbol_type (token::TOK_WORD_DIRECTIVE, v, l);
+      }
+#endif
+#if 201103L <= YY_CPLUSPLUS
+      static
+      symbol_type
+      make_DATA_S (std::string v, location_type l)
+      {
+        return symbol_type (token::TOK_DATA_S, std::move (v), std::move (l));
+      }
+#else
+      static
+      symbol_type
+      make_DATA_S (const std::string& v, const location_type& l)
+      {
+        return symbol_type (token::TOK_DATA_S, v, l);
+      }
+#endif
+#if 201103L <= YY_CPLUSPLUS
+      static
+      symbol_type
+      make_CODE_S (std::string v, location_type l)
+      {
+        return symbol_type (token::TOK_CODE_S, std::move (v), std::move (l));
+      }
+#else
+      static
+      symbol_type
+      make_CODE_S (const std::string& v, const location_type& l)
+      {
+        return symbol_type (token::TOK_CODE_S, v, l);
+      }
+#endif
+#if 201103L <= YY_CPLUSPLUS
+      static
+      symbol_type
+      make_CHAR_LITERAL (std::string v, location_type l)
+      {
+        return symbol_type (token::TOK_CHAR_LITERAL, std::move (v), std::move (l));
+      }
+#else
+      static
+      symbol_type
+      make_CHAR_LITERAL (const std::string& v, const location_type& l)
+      {
+        return symbol_type (token::TOK_CHAR_LITERAL, v, l);
       }
 #endif
 #if 201103L <= YY_CPLUSPLUS
@@ -1294,6 +1506,171 @@ switch (yykind)
 #if 201103L <= YY_CPLUSPLUS
       static
       symbol_type
+      make_MULT (std::string v, location_type l)
+      {
+        return symbol_type (token::TOK_MULT, std::move (v), std::move (l));
+      }
+#else
+      static
+      symbol_type
+      make_MULT (const std::string& v, const location_type& l)
+      {
+        return symbol_type (token::TOK_MULT, v, l);
+      }
+#endif
+#if 201103L <= YY_CPLUSPLUS
+      static
+      symbol_type
+      make_DIV (std::string v, location_type l)
+      {
+        return symbol_type (token::TOK_DIV, std::move (v), std::move (l));
+      }
+#else
+      static
+      symbol_type
+      make_DIV (const std::string& v, const location_type& l)
+      {
+        return symbol_type (token::TOK_DIV, v, l);
+      }
+#endif
+#if 201103L <= YY_CPLUSPLUS
+      static
+      symbol_type
+      make_MOD (std::string v, location_type l)
+      {
+        return symbol_type (token::TOK_MOD, std::move (v), std::move (l));
+      }
+#else
+      static
+      symbol_type
+      make_MOD (const std::string& v, const location_type& l)
+      {
+        return symbol_type (token::TOK_MOD, v, l);
+      }
+#endif
+#if 201103L <= YY_CPLUSPLUS
+      static
+      symbol_type
+      make_LSHIFT (std::string v, location_type l)
+      {
+        return symbol_type (token::TOK_LSHIFT, std::move (v), std::move (l));
+      }
+#else
+      static
+      symbol_type
+      make_LSHIFT (const std::string& v, const location_type& l)
+      {
+        return symbol_type (token::TOK_LSHIFT, v, l);
+      }
+#endif
+#if 201103L <= YY_CPLUSPLUS
+      static
+      symbol_type
+      make_RSHIFT (std::string v, location_type l)
+      {
+        return symbol_type (token::TOK_RSHIFT, std::move (v), std::move (l));
+      }
+#else
+      static
+      symbol_type
+      make_RSHIFT (const std::string& v, const location_type& l)
+      {
+        return symbol_type (token::TOK_RSHIFT, v, l);
+      }
+#endif
+#if 201103L <= YY_CPLUSPLUS
+      static
+      symbol_type
+      make_BAND (std::string v, location_type l)
+      {
+        return symbol_type (token::TOK_BAND, std::move (v), std::move (l));
+      }
+#else
+      static
+      symbol_type
+      make_BAND (const std::string& v, const location_type& l)
+      {
+        return symbol_type (token::TOK_BAND, v, l);
+      }
+#endif
+#if 201103L <= YY_CPLUSPLUS
+      static
+      symbol_type
+      make_BOR (std::string v, location_type l)
+      {
+        return symbol_type (token::TOK_BOR, std::move (v), std::move (l));
+      }
+#else
+      static
+      symbol_type
+      make_BOR (const std::string& v, const location_type& l)
+      {
+        return symbol_type (token::TOK_BOR, v, l);
+      }
+#endif
+#if 201103L <= YY_CPLUSPLUS
+      static
+      symbol_type
+      make_BXOR (std::string v, location_type l)
+      {
+        return symbol_type (token::TOK_BXOR, std::move (v), std::move (l));
+      }
+#else
+      static
+      symbol_type
+      make_BXOR (const std::string& v, const location_type& l)
+      {
+        return symbol_type (token::TOK_BXOR, v, l);
+      }
+#endif
+#if 201103L <= YY_CPLUSPLUS
+      static
+      symbol_type
+      make_ASCII_DIRECTIVE (std::string v, location_type l)
+      {
+        return symbol_type (token::TOK_ASCII_DIRECTIVE, std::move (v), std::move (l));
+      }
+#else
+      static
+      symbol_type
+      make_ASCII_DIRECTIVE (const std::string& v, const location_type& l)
+      {
+        return symbol_type (token::TOK_ASCII_DIRECTIVE, v, l);
+      }
+#endif
+#if 201103L <= YY_CPLUSPLUS
+      static
+      symbol_type
+      make_ASCIIZ_DIRECTIVE (std::string v, location_type l)
+      {
+        return symbol_type (token::TOK_ASCIIZ_DIRECTIVE, std::move (v), std::move (l));
+      }
+#else
+      static
+      symbol_type
+      make_ASCIIZ_DIRECTIVE (const std::string& v, const location_type& l)
+      {
+        return symbol_type (token::TOK_ASCIIZ_DIRECTIVE, v, l);
+      }
+#endif
+#if 201103L <= YY_CPLUSPLUS
+      static
+      symbol_type
+      make_STRING_LITERAL (std::string v, location_type l)
+      {
+        return symbol_type (token::TOK_STRING_LITERAL, std::move (v), std::move (l));
+      }
+#else
+      static
+      symbol_type
+      make_STRING_LITERAL (const std::string& v, const location_type& l)
+      {
+        return symbol_type (token::TOK_STRING_LITERAL, v, l);
+      }
+#endif
+#if 201103L <= YY_CPLUSPLUS
+      static
+      symbol_type
       make_DEC_NUM (int v, location_type l)
       {
         return symbol_type (token::TOK_DEC_NUM, std::move (v), std::move (l));
@@ -1304,6 +1681,21 @@ switch (yykind)
       make_DEC_NUM (const int& v, const location_type& l)
       {
         return symbol_type (token::TOK_DEC_NUM, v, l);
+      }
+#endif
+#if 201103L <= YY_CPLUSPLUS
+      static
+      symbol_type
+      make_UMINUS (location_type l)
+      {
+        return symbol_type (token::TOK_UMINUS, std::move (l));
+      }
+#else
+      static
+      symbol_type
+      make_UMINUS (const location_type& l)
+      {
+        return symbol_type (token::TOK_UMINUS, l);
       }
 #endif
 
@@ -1381,7 +1773,7 @@ switch (yykind)
     // Tables.
     // YYPACT[STATE-NUM] -- Index in YYTABLE of the portion describing
     // STATE-NUM.
-    static const signed char yypact_[];
+    static const short yypact_[];
 
     // YYDEFACT[STATE-NUM] -- Default reduction number in state STATE-NUM.
     // Performed when YYTABLE does not specify something else to do.  Zero
@@ -1414,7 +1806,7 @@ switch (yykind)
 
 #if YYDEBUG
     // YYRLINE[YYN] -- Source line where rule number YYN was defined.
-    static const unsigned char yyrline_[];
+    static const short yyrline_[];
     /// Report on the debug stream that the rule \a r is going to be reduced.
     virtual void yy_reduce_print_ (int r) const;
     /// Print the state stack on the debug stream.
@@ -1650,14 +2042,16 @@ switch (yykind)
     /// Constants.
     enum
     {
-      yylast_ = 57,     ///< Last index in yytable_.
-      yynnts_ = 12,  ///< Number of nonterminal symbols.
+      yylast_ = 164,     ///< Last index in yytable_.
+      yynnts_ = 17,  ///< Number of nonterminal symbols.
       yyfinal_ = 3 ///< Termination state number.
     };
 
 
     // User arguments.
-    driver& drv;
+    Mediator& m;
+    Validator& valid;
+    ListMaker& list;
 
   };
 
@@ -1687,10 +2081,16 @@ switch (yykind)
         break;
 
       case symbol_kind::S_notreg: // notreg
+      case symbol_kind::S_equ_expr: // equ_expr
+      case symbol_kind::S_word_value: // word_value
       case symbol_kind::S_number: // number
       case symbol_kind::S_prereg: // prereg
       case symbol_kind::S_prelp: // prelp
         value.copy< int16_t > (YY_MOVE (that.value));
+        break;
+
+      case symbol_kind::S_byte_value: // byte_value
+        value.copy< int8_t > (YY_MOVE (that.value));
         break;
 
       case symbol_kind::S_INSTRUCTION: // "instruction"
@@ -1699,7 +2099,13 @@ switch (yykind)
       case symbol_kind::S_BRANCH: // "branch"
       case symbol_kind::S_REGISTER: // "register"
       case symbol_kind::S_LABEL: // "label"
-      case symbol_kind::S_DIRECTIVE: // "directive"
+      case symbol_kind::S_PORT: // "port"
+      case symbol_kind::S_EQU_DIRECTIVE: // "directive_EQU"
+      case symbol_kind::S_BYTE_DIRECTIVE: // "directive_BYTE"
+      case symbol_kind::S_WORD_DIRECTIVE: // "directive_WORD"
+      case symbol_kind::S_DATA_S: // "data_seg"
+      case symbol_kind::S_CODE_S: // "code_seg"
+      case symbol_kind::S_CHAR_LITERAL: // "char_literal"
       case symbol_kind::S_AT: // "at"
       case symbol_kind::S_NUMSIGN: // "numsign"
       case symbol_kind::S_LPAREN: // "lparen"
@@ -1708,7 +2114,28 @@ switch (yykind)
       case symbol_kind::S_PLUS: // "plus"
       case symbol_kind::S_HEX_NUM: // "hexnum"
       case symbol_kind::S_OCT_NUM: // "octnum"
+      case symbol_kind::S_MULT: // "mult"
+      case symbol_kind::S_DIV: // "div"
+      case symbol_kind::S_MOD: // "mod"
+      case symbol_kind::S_LSHIFT: // "lshift"
+      case symbol_kind::S_RSHIFT: // "rshift"
+      case symbol_kind::S_BAND: // "band"
+      case symbol_kind::S_BOR: // "bor"
+      case symbol_kind::S_BXOR: // "bxor"
+      case symbol_kind::S_ASCII_DIRECTIVE: // "ascii"
+      case symbol_kind::S_ASCIIZ_DIRECTIVE: // "asciiz"
+      case symbol_kind::S_STRING_LITERAL: // "string_literal"
+      case symbol_kind::S_expr: // expr
+      case symbol_kind::S_postreg: // postreg
         value.copy< std::string > (YY_MOVE (that.value));
+        break;
+
+      case symbol_kind::S_word_expr: // word_expr
+        value.copy< std::vector<int16_t> > (YY_MOVE (that.value));
+        break;
+
+      case symbol_kind::S_byte_expr: // byte_expr
+        value.copy< std::vector<int8_t> > (YY_MOVE (that.value));
         break;
 
       default:
@@ -1752,10 +2179,16 @@ switch (yykind)
         break;
 
       case symbol_kind::S_notreg: // notreg
+      case symbol_kind::S_equ_expr: // equ_expr
+      case symbol_kind::S_word_value: // word_value
       case symbol_kind::S_number: // number
       case symbol_kind::S_prereg: // prereg
       case symbol_kind::S_prelp: // prelp
         value.move< int16_t > (YY_MOVE (s.value));
+        break;
+
+      case symbol_kind::S_byte_value: // byte_value
+        value.move< int8_t > (YY_MOVE (s.value));
         break;
 
       case symbol_kind::S_INSTRUCTION: // "instruction"
@@ -1764,7 +2197,13 @@ switch (yykind)
       case symbol_kind::S_BRANCH: // "branch"
       case symbol_kind::S_REGISTER: // "register"
       case symbol_kind::S_LABEL: // "label"
-      case symbol_kind::S_DIRECTIVE: // "directive"
+      case symbol_kind::S_PORT: // "port"
+      case symbol_kind::S_EQU_DIRECTIVE: // "directive_EQU"
+      case symbol_kind::S_BYTE_DIRECTIVE: // "directive_BYTE"
+      case symbol_kind::S_WORD_DIRECTIVE: // "directive_WORD"
+      case symbol_kind::S_DATA_S: // "data_seg"
+      case symbol_kind::S_CODE_S: // "code_seg"
+      case symbol_kind::S_CHAR_LITERAL: // "char_literal"
       case symbol_kind::S_AT: // "at"
       case symbol_kind::S_NUMSIGN: // "numsign"
       case symbol_kind::S_LPAREN: // "lparen"
@@ -1773,7 +2212,28 @@ switch (yykind)
       case symbol_kind::S_PLUS: // "plus"
       case symbol_kind::S_HEX_NUM: // "hexnum"
       case symbol_kind::S_OCT_NUM: // "octnum"
+      case symbol_kind::S_MULT: // "mult"
+      case symbol_kind::S_DIV: // "div"
+      case symbol_kind::S_MOD: // "mod"
+      case symbol_kind::S_LSHIFT: // "lshift"
+      case symbol_kind::S_RSHIFT: // "rshift"
+      case symbol_kind::S_BAND: // "band"
+      case symbol_kind::S_BOR: // "bor"
+      case symbol_kind::S_BXOR: // "bxor"
+      case symbol_kind::S_ASCII_DIRECTIVE: // "ascii"
+      case symbol_kind::S_ASCIIZ_DIRECTIVE: // "asciiz"
+      case symbol_kind::S_STRING_LITERAL: // "string_literal"
+      case symbol_kind::S_expr: // expr
+      case symbol_kind::S_postreg: // postreg
         value.move< std::string > (YY_MOVE (s.value));
+        break;
+
+      case symbol_kind::S_word_expr: // word_expr
+        value.move< std::vector<int16_t> > (YY_MOVE (s.value));
+        break;
+
+      case symbol_kind::S_byte_expr: // byte_expr
+        value.move< std::vector<int8_t> > (YY_MOVE (s.value));
         break;
 
       default:
@@ -1842,9 +2302,9 @@ switch (yykind)
 
 
 } // yy
-#line 1846 "parser.tab.hh"
+#line 2306 "include/parser.tab.hh"
 
 
 
 
-#endif // !YY_YY_PARSER_TAB_HH_INCLUDED
+#endif // !YY_YY_INCLUDE_PARSER_TAB_HH_INCLUDED

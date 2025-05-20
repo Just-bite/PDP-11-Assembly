@@ -1,0 +1,34 @@
+Instructions                            LC
+--------------------------------------------------
+.DATA                                         1000
+hello_msg: .ASCIIZ "Hello,World!"             1015
+super_msg: .ASCIIZ "We love PDP-11!"          1035
+sad_msg: .ASCIIZ "Sadness"                    1045
+byte_string: .BYTE 13 10 72 101 108 108 111 44 32 119 111 114 108 100 63 0       1065
+.CODE                                         2000
+MOV # super_msg, R1; showing that mesg        2004
+; can be easily stored                        2004
+LOOP:                                         2004
+TSTB TPS                                      2010
+BPL LOOP                                      2012
+MOVB  (R1 )+, TPB                             2016
+BNE LOOP                                      2020
+MOV # byte_string, R1                         2024
+LOOP1:                                        2024
+TSTB TPS                                      2030
+BPL LOOP1                                     2032
+MOVB  (R1 )+, TPB                             2036
+BNE LOOP1                                     2040
+MOV # sad_msg, R1                             2044
+LOOP2:                                        2044
+TSTB TPS                                      2050
+BPL LOOP2                                     2052
+MOVB  (R1 )+, TPB                             2056
+BNE LOOP2                                     2060
+MOV # hello_msg, R1                           2064
+LOOP3:                                        2064
+TSTB TPS                                      2070
+BPL LOOP3                                     2072
+MOVB  (R1 )+, TPB                             2076
+BNE LOOP3                                     2100
+HALT                                          2102
